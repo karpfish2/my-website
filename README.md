@@ -22,7 +22,7 @@
 
 1. **Склонируйте репозиторий**:
    ```bash
-   git clone https://github.com/your-repo/carp-beaver-snake.git
+   git clone https://github.com/karpfish2/my-website.git
    ```
 
 2. **Установите любой вебсервер который вам нужен** (если используете Node.js):
