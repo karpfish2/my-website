@@ -1,0 +1,130 @@
+:root {
+    --main-color: #8B7355;      /* Тёплый бежево-коричневый */
+    --accent-color: #FFD700;    /* Золотисто-жёлтый */
+    --text-dark: #4A4A4A;       /* Тёмно-серый с бежевым оттенком */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #FFF8E7;        /* Светло-бежевый фон */
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.title {
+    text-align: center;
+    color: var(--main-color);
+    margin: 2rem 0;
+    font-size: 2.5rem;
+    animation: fadeIn 1s ease-out;
+}
+
+.content-box {
+    background: #FFFFF0;        /* Слоновая кость */
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    box-shadow: 0 5px 15px rgba(139, 115, 85, 0.1); /* Тень с оттенком main-color */
+    animation: slideUp 0.8s ease-out;
+}
+
+.intro {
+    line-height: 1.6;
+    color: var(--text-dark);
+    font-size: 1.1rem;
+}
+
+.intro i {
+    color: var(--main-color);
+    font-style: italic;
+    font-size: 1.3em;
+}
+
+.facts-box {
+    background: #FFFFF0;        /* Слоновая кость */
+    border-radius: 15px;
+    padding: 2rem;
+    margin: 2rem 0;
+    animation: slideUp 0.8s ease-out 0.2s;
+    animation-fill-mode: backwards;
+}
+
+h2 {
+    color: var(--main-color);
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.facts-list {
+    list-style: none;
+}
+
+.facts-list li {
+    padding: 0.8rem;
+    margin: 0.8rem 0;
+    background: #FAF0E6;        /* Льняной оттенок */
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: transform 0.3s ease;
+    border: 1px solid #EEE8DD;  /* Светло-бежевая граница */
+}
+
+.facts-list li:hover {
+    transform: translateX(10px);
+    background: #FFF8F0;        /* Светлый пергамент */
+}
+
+.highlight {
+    font-weight: 600;
+    color: var(--main-color);
+    position: relative;
+}
+
+.highlight::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--accent-color);
+}
+
+.fact-icon {
+    font-size: 1.2rem;
+    color: #C5A563;             /* Тёмное золото */
+}
+
+/* Остальные стили без изменений */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+    .title {
+        font-size: 2rem;
+    }
+    
+    .facts-list li {
+        font-size: 0.9rem;
+    }
+}

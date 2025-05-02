@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Широкая гонка с препятствиями</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #1a1a1a;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #winner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            color: white;
+            text-shadow: 0 0 10px black;
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="track"></canvas>
+    <div id="winner">
+        <div>Победитель: <span id="winner-color" style="font-weight: bold;"></span></div>
+        <div style="font-size: 20px; margin-top: 10px;">Новый заезд через: <span id="timer">4</span>с</div>
+    </div>
+    <script>
+        const canvas = document.getElementById('track');
+        const ctx = canvas.getContext('2d');
+        const winnerDiv = document.getElementById('winner');
+        const timerSpan = document.getElementById('timer');
+        
+        // Настройки
+        const BALLS_COUNT = 10;
+        const TRACK_WIDTH = 300;
+        const BALL_SIZE = 16;
+        const CAMERA_LERP = 0.1;
+        
+        let trackPoints = [];
+        let balls = [];
+        let obstacles = [];
+        let cameraY = 0;
+        let maxY = 0;
+        let raceFinished = false;
+        let restartTimer = null;
+        
+        const OBSTACLE_TYPES = {
+            BLADES: 1,
+            SPINNER: 2,
+            MOVING_BARRIER: 3
+        };
+
+        function init() {
+            resizeCanvas();
+            newRace();
+            animate();
+        }
+        
+        function newRace() {
+            raceFinished = false;
+            generateTrack();
+            createBalls();
+            generateObstacles();
+            cameraY = 0;
+            maxY = 0;
+            if(restartTimer) clearInterval(restartTimer);
+        }
+        
+        function generateTrack() {
+            trackPoints = [];
+            const numPoints = 150;
+            const startX = canvas.width / 2;
+            let currentY = 0;
+            let xOffset = 0;
+            
+            for(let i = 0; i < numPoints; i++) {
+                xOffset += (Math.random() - 0.5) * 250;
+                xOffset = Math.max(-500, Math.min(500, xOffset));
+                trackPoints.push({
+                    x: startX + xOffset,
+                    y: currentY
+                });
+                currentY += 40 + Math.random() * 50;
+            }
+        }
+        
+        function createBalls() {
+            balls = [];
+            const spread = TRACK_WIDTH * 0.7;
+            
+            for(let i = 0; i < BALLS_COUNT; i++) {
+                const lateralOffset = (i / (BALLS_COUNT - 1) - 0.5) * spread;
+                balls.push({
+                    color: `hsl(${Math.random()*360}, 70%, 60%)`,
+                    position: 0,
+                    speed: 0.8 + Math.random() * 0.7,
+                    finished: false,
+                    crashed: false,
+                    lateralOffset: lateralOffset
+                });
+            }
+        }
+        
+        function generateObstacles() {
+            obstacles = [];
+            for(let i = 5; i < trackPoints.length - 5; i += 10) {
+                const type = Math.random() > 0.5 ? OBSTACLE_TYPES.BLADES : 
+                           Math.random() > 0.5 ? OBSTACLE_TYPES.SPINNER : 
+                           OBSTACLE_TYPES.MOVING_BARRIER;
+                
+                const obstacle = {
+                    x: trackPoints[i].x,
+                    y: trackPoints[i].y,
+                    type: type,
+                    angle: 0,
+                    speed: Math.random() * 0.05 + 0.03,
+                    direction: Math.random() > 0.5 ? 1 : -1,
+                    width: 100 + Math.random() * 50,
+                    progress: 0
+                };
+                
+                if(type === OBSTACLE_TYPES.MOVING_BARRIER) {
+                    obstacle.speed = 0.03;
+                    obstacle.moveRange = 150 + Math.random() * 50;
+                }
+                
+                obstacles.push(obstacle);
+            }
+        }
+        
+        function drawTrack() {
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = TRACK_WIDTH;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            trackPoints.forEach((p, i) => {
+                if(i === 0) ctx.moveTo(p.x, p.y - cameraY);
+                else ctx.lineTo(p.x, p.y - cameraY);
+            });
+            ctx.stroke();
+        }
+        
+        function getBallPosition(ball) {
+            const index = Math.floor(ball.position);
+            const progress = ball.position % 1;
+            const p1 = trackPoints[index];
+            const p2 = trackPoints[index + 1] || p1;
+            
+            // Основная позиция
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const length = Math.sqrt(dx*dx + dy*dy);
+            
+            // Перпендикулярное направление
+            const perpX = -dy / length;
+            const perpY = dx / length;
+            
+            return {
+                x: p1.x + dx * progress + perpX * ball.lateralOffset,
+                y: p1.y + dy * progress + perpY * ball.lateralOffset
+            };
+        }
+        
+        function updateBalls() {
+            let activeBalls = balls.filter(b => !b.finished && !b.crashed);
+            
+            activeBalls.forEach(ball => {
+                ball.position += ball.speed * 0.02;
+                
+                if(ball.position >= trackPoints.length - 1) {
+                    ball.finished = true;
+                    finishRace();
+                    return;
+                }
+                
+                const pos = getBallPosition(ball);
+                ball.x = pos.x;
+                ball.y = pos.y;
+                
+                obstacles.forEach(obs => {
+                    const dx = ball.x - obs.x;
+                    const dy = (ball.y - obs.y) - cameraY;
+                    if(Math.sqrt(dx*dx + dy*dy) < 40) {
+                        ball.crashed = true;
+                    }
+                });
+            });
+            
+            // Обновление камеры
+            const activeY = activeBalls.map(b => b.y);
+            const maxBallY = activeY.length ? Math.max(...activeY) : maxY;
+            const targetY = maxBallY - canvas.height * 0.7;
+            cameraY += (targetY - cameraY) * CAMERA_LERP;
+            maxY = Math.max(maxY, maxBallY);
+        }
+        
+        function drawBalls() {
+            balls.forEach(ball => {
+                if(ball.finished || ball.crashed) return;
+                
+                const pos = getBallPosition(ball);
+                
+                ctx.save();
+                ctx.translate(pos.x, pos.y - cameraY);
+                
+                // Шарик
+                ctx.beginPath();
+                ctx.arc(0, 0, BALL_SIZE, 0, Math.PI*2);
+                ctx.fillStyle = ball.color;
+                ctx.fill();
+                
+                // Свечение
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, BALL_SIZE*2);
+                gradient.addColorStop(0, ball.color);
+                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, BALL_SIZE*2, 0, Math.PI*2);
+                ctx.fill();
+                
+                ctx.restore();
+            });
+        }
+        
+        // Остальные функции остаются без изменений (drawObstacles, finishRace, animate и т.д.)
+        // ... (остальной код из предыдущей версии)
+
+        function updateObstacles() {
+            obstacles.forEach(obs => {
+                obs.angle += obs.speed * obs.direction;
+                
+                if(obs.type === OBSTACLE_TYPES.MOVING_BARRIER) {
+                    obs.progress = (obs.progress + obs.speed) % (Math.PI * 2);
+                    obs.x = trackPoints.find(p => p.y === obs.y).x + 
+                           Math.sin(obs.progress) * obs.moveRange;
+                }
+            });
+        }
+
+        function drawObstacles() {
+            obstacles.forEach(obs => {
+                ctx.save();
+                ctx.translate(obs.x, obs.y - cameraY);
+                
+                switch(obs.type) {
+                    case OBSTACLE_TYPES.BLADES:
+                        ctx.strokeStyle = '#ff5555';
+                        ctx.lineWidth = 12;
+                        ctx.rotate(obs.angle);
+                        ctx.beginPath();
+                        ctx.moveTo(-obs.width/2, 0);
+                        ctx.lineTo(obs.width/2, 0);
+                        ctx.stroke();
+                        break;
+                        
+                    case OBSTACLE_TYPES.SPINNER:
+                        ctx.strokeStyle = '#55ff55';
+                        ctx.lineWidth = 10;
+                        ctx.rotate(obs.angle);
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 50, 0, Math.PI*2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        for(let i = 0; i < 6; i++) {
+                            ctx.rotate(Math.PI/3);
+                            ctx.moveTo(45, 0);
+                            ctx.lineTo(55, 0);
+                        }
+                        ctx.stroke();
+                        break;
+                        
+                    case OBSTACLE_TYPES.MOVING_BARRIER:
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.beginPath();
+                        ctx.arc(0, 0, 30, 0, Math.PI*2);
+                        ctx.fill();
+                        break;
+                }
+                
+                ctx.restore();
+            });
+        }
+
+        function finishRace() {
+            if(raceFinished) return;
+            raceFinished = true;
+            
+            const winner = balls.filter(b => !b.crashed)
+                              .reduce((prev, current) => 
+                                (prev.position > current.position) ? prev : current, 
+                                {position: -1});
+            
+            winnerDiv.style.display = 'block';
+            document.getElementById('winner-color').style.color = winner.color;
+            document.getElementById('winner-color').textContent = winner.color;
+            
+            let seconds = 4;
+            restartTimer = setInterval(() => {
+                timerSpan.textContent = seconds;
+                if(seconds-- <= 0) {
+                    clearInterval(restartTimer);
+                    winnerDiv.style.display = 'none';
+                    newRace();
+                }
+            }, 1000);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawTrack();
+            if(!raceFinished) {
+                updateObstacles();
+                updateBalls();
+            }
+            drawObstacles();
+            drawBalls();
+            requestAnimationFrame(animate);
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        init();
+    </script>
+</body>
+</html>

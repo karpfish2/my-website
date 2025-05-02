@@ -1,0 +1,127 @@
+:root {
+    --main-color: #2A5934;
+    --accent-color: #FFD700;
+    --text-dark: #333;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f0f8ff;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.title {
+    text-align: center;
+    color: var(--main-color);
+    margin: 2rem 0;
+    font-size: 2.5rem;
+    animation: fadeIn 1s ease-out;
+}
+
+.content-box {
+    background: white;
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    animation: slideUp 0.8s ease-out;
+}
+
+.intro {
+    line-height: 1.6;
+    color: var(--text-dark);
+    font-size: 1.1rem;
+}
+
+.intro i {
+    color: var(--main-color);
+    font-style: italic;
+    font-size: 1.3em;
+}
+
+.facts-box {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    margin: 2rem 0;
+    animation: slideUp 0.8s ease-out 0.2s;
+    animation-fill-mode: backwards;
+}
+
+h2 {
+    color: var(--main-color);
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.facts-list {
+    list-style: none;
+}
+
+.facts-list li {
+    padding: 0.8rem;
+    margin: 0.8rem 0;
+    background: #f8f8f8;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: transform 0.3s ease;
+}
+
+.facts-list li:hover {
+    transform: translateX(10px);
+    background: #fff;
+}
+
+.highlight {
+    font-weight: 600;
+    color: var(--main-color);
+    position: relative;
+}
+
+.highlight::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--accent-color);
+}
+
+.fact-icon {
+    font-size: 1.2rem;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+    .title {
+        font-size: 2rem;
+    }
+    
+    .facts-list li {
+        font-size: 0.9rem;
+    }
+}

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анонимный чат</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        #chat-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .message {
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .own-message {
+            background-color: #dcf8c6;
+            margin-left: auto;
+        }
+        .other-message {
+            background-color: #f1f0f0;
+        }
+        .system-message {
+            background-color: #fff3cd;
+            text-align: center;
+            max-width: 100%;
+            font-style: italic;
+            color: #856404;
+        }
+        .user-tag {
+            font-weight: bold;
+            margin-bottom: 3px;
+            font-size: 0.85em;
+            color: #555;
+        }
+        #message-form {
+            display: flex;
+            gap: 10px;
+        }
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #nickname-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #nickname-input {
+            padding: 8px;
+            width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        #room-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #room-input {
+            padding: 8px;
+            width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        #users-online {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Анонимный чат</h1>
+    
+    <div id="room-selector">
+        <input type="text" id="room-input" placeholder="Название комнаты">
+        <button id="join-room-btn">Присоединиться</button>
+    </div>
+
+    <div id="chat-container" style="display: none;">
+        <div id="users-online">Онлайн: 0</div>
+        <div id="messages"></div>
+        <form id="message-form">
+            <input type="text" id="message-input" placeholder="Введите сообщение..." autocomplete="off">
+            <button type="submit">Отправить</button>
+        </form>
+    </div>
+
+    <div id="nickname-container">
+        <input type="text" id="nickname-input" placeholder="Ваш никнейм (опционально)">
+        <button id="set-nickname-btn">Установить</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const messagesDiv = document.getElementById('messages');
+            const messageForm = document.getElementById('message-form');
+            const messageInput = document.getElementById('message-input');
+            const nicknameInput = document.getElementById('nickname-input');
+            const setNicknameBtn = document.getElementById('set-nickname-btn');
+            const roomInput = document.getElementById('room-input');
+            const joinRoomBtn = document.getElementById('join-room-btn');
+            const chatContainer = document.getElementById('chat-container');
+            const roomSelector = document.getElementById('room-selector');
+            const usersOnline = document.getElementById('users-online');
+            
+            // Генерируем случайный ID для пользователя
+            const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            let nickname = 'Аноним_' + userId.slice(-4);
+            let currentRoom = '';
+            let socket;
+            
+            // Функция для подключения к веб-сокету
+            function connectWebSocket(room) {
+                // Используем бесплатный сервис для веб-сокетов
+                socket = new WebSocket('wss://socketsbay.com/wss/v2/1/demo/');
+                
+                socket.onopen = function() {
+                    console.log('Соединение установлено');
+                    // Отправляем инфо о присоединении к комнате
+                    const joinMsg = {
+                        type: 'join',
+                        userId: userId,
+                        nickname: nickname,
+                        room: room,
+                        timestamp: new Date().toISOString()
+                    };
+                    socket.send(JSON.stringify(joinMsg));
+                    
+                    // Показываем чат, скрываем выбор комнаты
+                    chatContainer.style.display = 'block';
+                    roomSelector.style.display = 'none';
+                    
+                    // Добавляем системное сообщение
+                    addMessage({
+                        type: 'system',
+                        content: `Вы присоединились к комнате "${room}"`
+                    });
+                };
+                
+                socket.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.room === currentRoom) {
+                            if (data.type === 'chat') {
+                                // Добавляем сообщение чата
+                                addMessage({
+                                    type: data.userId === userId ? 'own' : 'other',
+                                    content: data.content,
+                                    nickname: data.nickname
+                                });
+                            } else if (data.type === 'join') {
+                                // Добавляем сообщение о новом пользователе
+                                if (data.userId !== userId) {
+                                    addMessage({
+                                        type: 'system',
+                                        content: `${data.nickname} присоединился к чату`
+                                    });
+                                }
+                                // Обновляем счетчик пользователей
+                                updateUsersCount(data.onlineCount);
+                            } else if (data.type === 'leave') {
+                                // Добавляем сообщение о выходе пользователя
+                                addMessage({
+                                    type: 'system',
+                                    content: `${data.nickname} покинул чат`
+                                });
+                                // Обновляем счетчик пользователей
+                                updateUsersCount(data.onlineCount);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Ошибка при обработке сообщения:', error);
+                    }
+                };
+                
+                socket.onclose = function() {
+                    console.log('Соединение закрыто');
+                    addMessage({
+                        type: 'system',
+                        content: 'Соединение с сервером потеряно. Обновите страницу, чтобы переподключиться.'
+                    });
+                };
+                
+                socket.onerror = function(error) {
+                    console.error('Ошибка WebSocket:', error);
+                    addMessage({
+                        type: 'system',
+                        content: 'Произошла ошибка соединения.'
+                    });
+                };
+            }
+            
+            // Функция для добавления сообщения в чат
+            function addMessage(message) {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message');
+                
+                if (message.type === 'own') {
+                    messageElement.classList.add('own-message');
+                    if (message.nickname) {
+                        const userTag = document.createElement('div');
+                        userTag.classList.add('user-tag');
+                        userTag.textContent = message.nickname;
+                        messageElement.appendChild(userTag);
+                    }
+                    messageElement.appendChild(document.createTextNode(message.content));
+                } else if (message.type === 'other') {
+                    messageElement.classList.add('other-message');
+                    if (message.nickname) {
+                        const userTag = document.createElement('div');
+                        userTag.classList.add('user-tag');
+                        userTag.textContent = message.nickname;
+                        messageElement.appendChild(userTag);
+                    }
+                    messageElement.appendChild(document.createTextNode(message.content));
+                } else if (message.type === 'system') {
+                    messageElement.classList.add('system-message');
+                    messageElement.textContent = message.content;
+                }
+                
+                messagesDiv.appendChild(messageElement);
+                // Прокручиваем чат вниз
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+            
+            // Функция для обновления счетчика пользователей
+            function updateUsersCount(count) {
+                if (count !== undefined) {
+                    usersOnline.textContent = `Онлайн: ${count}`;
+                }
+            }
+            
+            // Обработчик отправки сообщения
+            messageForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const content = messageInput.value.trim();
+                if (content && socket && socket.readyState === WebSocket.OPEN) {
+                    const message = {
+                        type: 'chat',
+                        userId: userId,
+                        nickname: nickname,
+                        content: content,
+                        room: currentRoom,
+                        timestamp: new Date().toISOString()
+                    };
+                    socket.send(JSON.stringify(message));
+                    messageInput.value = '';
+                }
+            });
+            
+            // Обработчик установки никнейма
+            setNicknameBtn.addEventListener('click', function() {
+                const newNickname = nicknameInput.value.trim();
+                if (newNickname) {
+                    const oldNickname = nickname;
+                    nickname = newNickname;
+                    nicknameInput.value = '';
+                    
+                    addMessage({
+                        type: 'system',
+                        content: `Вы изменили имя с "${oldNickname}" на "${nickname}"`
+                    });
+                    
+                    // Если уже в комнате, отправляем уведомление об изменении имени
+                    if (socket && socket.readyState === WebSocket.OPEN && currentRoom) {
+                        const nameChangeMsg = {
+                            type: 'nameChange',
+                            userId: userId,
+                            oldNickname: oldNickname,
+                            newNickname: nickname,
+                            room: currentRoom,
+                            timestamp: new Date().toISOString()
+                        };
+                        socket.send(JSON.stringify(nameChangeMsg));
+                    }
+                }
+            });
+            
+            // Обработчик присоединения к комнате
+            joinRoomBtn.addEventListener('click', function() {
+                const room = roomInput.value.trim() || 'main';
+                currentRoom = room;
+                connectWebSocket(room);
+            });
+            
+            // Обработчик закрытия окна
+            window.addEventListener('beforeunload', function() {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    const leaveMsg = {
+                        type: 'leave',
+                        userId: userId,
+                        nickname: nickname,
+                        room: currentRoom,
+                        timestamp: new Date().toISOString()
+                    };
+                    socket.send(JSON.stringify(leaveMsg));
+                }
+            });
+        });
+    </script>
+</body>
+</html>

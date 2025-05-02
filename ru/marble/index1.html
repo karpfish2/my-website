@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Гонка шариков</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="track"></canvas>
+    <script>
+        const canvas = document.getElementById('track');
+        const ctx = canvas.getContext('2d');
+        
+        // Настройки
+        const BALLS_COUNT = 7;
+        const TRACK_WIDTH = 40;
+        const BALL_SIZE = 12;
+        
+        let trackPoints = [];
+        let balls = [];
+        
+        // Инициализация
+        function init() {
+            resizeCanvas();
+            generateTrack();
+            createBalls();
+            animate();
+        }
+        
+        // Генерация случайной трассы
+        function generateTrack() {
+            trackPoints = [];
+            const numPoints = 25;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for(let i = 0; i < numPoints; i++) {
+                const angle = (i / numPoints) * Math.PI * 2;
+                const radius = 150 + Math.random() * 100;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                trackPoints.push({x, y});
+            }
+            trackPoints.push(trackPoints[0]);
+        }
+        
+        // Создание шариков
+        function createBalls() {
+            balls = [];
+            for(let i = 0; i < BALLS_COUNT; i++) {
+                balls.push({
+                    color: `hsl(${Math.random()*360}, 70%, 60%)`,
+                    position: Math.random() * trackPoints.length,
+                    speed: 0.3 + Math.random() * 0.5
+                });
+            }
+        }
+        
+        // Отрисовка трассы
+        function drawTrack() {
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = TRACK_WIDTH;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            trackPoints.forEach((p, i) => {
+                if(i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+        }
+        
+        // Обновление позиций шариков
+        function updateBalls() {
+            balls.forEach(ball => {
+                ball.position = (ball.position + ball.speed * 0.02) % (trackPoints.length - 1);
+            });
+        }
+        
+        // Отрисовка шариков
+        function drawBalls() {
+            balls.forEach(ball => {
+                const index = Math.floor(ball.position);
+                const progress = ball.position % 1;
+                const p1 = trackPoints[index];
+                const p2 = trackPoints[index + 1];
+                
+                const x = p1.x + (p2.x - p1.x) * progress;
+                const y = p1.y + (p2.y - p1.y) * progress;
+                
+                // Рисуем шарик
+                ctx.beginPath();
+                ctx.arc(x, y, BALL_SIZE, 0, Math.PI*2);
+                ctx.fillStyle = ball.color;
+                ctx.fill();
+                
+                // Добавляем свечение
+                ctx.beginPath();
+                ctx.arc(x, y, BALL_SIZE*1.5, 0, Math.PI*2);
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, BALL_SIZE*1.5);
+                gradient.addColorStop(0, ball.color);
+                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            });
+        }
+        
+        // Анимация
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTrack();
+            updateBalls();
+            drawBalls();
+            requestAnimationFrame(animate);
+        }
+        
+        // Обработка изменения размера окна
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            generateTrack();
+        });
+        
+        init();
+    </script>
+</body>
+</html>
